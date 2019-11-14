@@ -1,41 +1,49 @@
 #include<iostream>
 #include<vector>
 #include<algorithm>
-#include<time>
+#include<time.h>
 #include<random>
 using namespace std;
 
 struct linObstacle {
-	int x1,x2;
-	int y1,y2;
+	double x1,x2;
+	double y1,y2;
 };
 
-pair<int,int> getNearest(pair<int, int> newVert, vector<pair<int,int>> &vertex, int n)
+
+auto getDistance(pair<int,int> p1, pair<int,int> p2)
 {
+	return sqrt(pow(p2.first - p1.first,2) + pow(p2.second - p1.first,2));
+}
+
+pair<int,int> getNearest(pair<double, double> newVert, vector<pair<double,double>> &vertex, int n)
+{
+	int idx = 0;
+	double min = 0;
 	for(auto i = 0 ; i < n ; ++i)
 	{
-		int idx;
-		int tmpDist = getDistance(newVert, vertex[i]);
+		double tmpDist = getDistance(newVert, vertex[i]);
 		if(tmpDist < min) {
 			min = tmpDist;
 			idx = i;
 		}
 	}
+	return vertex[idx];
 }
 
 //random configuration using mersenne twister
-pair<int,int> randomConfig()
+pair<double,double> randomConfig()
 {
 	random_device random_dev;
 	mt19937 random_eng(random_dev());
-	normal_distribution<int> dist(0,1000);
+	normal_distribution<> dist(0,1000);
 	return make_pair(dist(random_eng),dist(random_eng));
 }
 
 //checking for obstacles(linear)
-bool onObstacle(pair<int, int> vert, vector<linObstacle> obs, int nObs)
+bool onObstacle(pair<double, double> vert, vector<linObstacle> obs, int nObs)
 {		
-	const int xdiv,ydiv;
+	double xdiv,ydiv;
 	for(auto i = 0 ; i < nObs ; ++i) {
 		xdiv = (vert.first - obs[i].x1)/(obs[i].x2 - obs[i].x1);
 		ydiv = (vert.second - obs[i].y1)/(obs[i].y2 - obs[i].y1);
@@ -59,28 +67,24 @@ bool cutsObstacle(pair<int,int> nearVert, pair<int,int> newVert, vector<linObsta
   		if (determinant == 0) 
         	return false;
 	}
-	
-
-auto getDistance(pair<int,int> p1, pair<int,int> p2)
-{
-	return sqrt(pow(p2.first - p1.first,2) + pow(p2.second - p1.first,2));
-}
+	return true;
+}	
 
 
 int main()
 {
 
-	vector<pair<int , int>> vertex;
+	vector<pair<double, double>> vertex;
 	vertex.reserve(1000);
 	cout<<"Enter starting coordinates ";
 	cin>>vertex[0].first>>vertex[0].second;
 
-	pair<const int, const int> goal;
+	pair<double,double> goal;
 	cout<<"Enter goal coordinates ";
 	cin>>goal.first>>goal.second;
 
 	int iter;
-	cout<<"Enter rrt iterations "
+	cout<<"Enter rrt iterations ";
 	cin>>iter;
 
 	int nVert;
@@ -97,16 +101,17 @@ int main()
 	int count = 0;
 	while(count < nVert)
 	{
-		auto randVert = randomConfig();
+		auto newVert = randomConfig();
+		cout<<"Trying "<<newVert.first<<" "<<newVert.second<<endl;
 		if(onObstacle(newVert,obs,nObs)) {
 			continue;
 		}
-		auto nearVert = getNearest(randVert,vertex,vertex.size());
+		auto nearVert = getNearest(newVert,vertex,vertex.size());
+		if(cutsObstacle(nearVert,newVert,obs,nObs))
+			continue;
 		++count;
 	}
 	if(count == iter)
-		cout<<"Iteration limit reached, graph reached "+ vertex[nVert].first + " "+ vertex[nVert].second<<endl;
-	else
-		cout<<"Goal reached. Final coordinates "+ newVert.first + " "+ newVert.second<<endl;
+		cout<<"Iteration limit reached, graph reached "<<vertex[nVert].first<<" "<< vertex[nVert].second<<endl;
 	return 0;
 }
