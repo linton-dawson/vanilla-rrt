@@ -5,17 +5,19 @@
 #include<random>
 using namespace std;
 
+//Linear obstacle coordinates
 struct linObstacle {
 	double x1,x2;
 	double y1,y2;
 };
 
-
+//Distance function
 auto getDistance(pair<int,int> p1, pair<int,int> p2)
 {
 	return sqrt(pow(p2.first - p1.first,2) + pow(p2.second - p1.first,2));
 }
 
+//returns nearest vertex present in the graph
 pair<int,int> getNearest(pair<double, double> newVert, vector<pair<double,double>> &vertex, int n)
 {
 	int idx = 0;
@@ -31,14 +33,21 @@ pair<int,int> getNearest(pair<double, double> newVert, vector<pair<double,double
 	return vertex[idx];
 }
 
+
 //random configuration using mersenne twister
-pair<double,double> randomConfig()
+pair<double,double> randomConfig(double xbound, double ybound, const double xd, const double yd)
 {
-	random_device random_dev;
-	mt19937 random_eng(random_dev());
-	normal_distribution<> dist(0,1000);
-	return make_pair(dist(random_eng),dist(random_eng));
+	random_device rd;
+//	random_device rd1;
+	mt19937 mtw(rd());
+	uniform_real_distribution<double> dist(xbound,xbound + xd);
+	auto n1 =dist(mtw);
+//	mt19937 mtw1(rd1());
+	uniform_real_distribution<> dist1(ybound,ybound + yd);
+	auto n2 =dist1(mtw);
+	return make_pair(n1,n2);
 }
+
 
 //checking for obstacles(linear)
 bool onObstacle(pair<double, double> vert, vector<linObstacle> obs, int nObs)
@@ -53,32 +62,48 @@ bool onObstacle(pair<double, double> vert, vector<linObstacle> obs, int nObs)
 	return false;
 }
 
+
+//double cross( pair<double , double> seg1 , pair<double, double> seg2)
+//	return seg1.first * seg2.second - seg2.first * seg1.second;
+
+//gets point direction wrt line segment
+double direction(pair<double, double> pi , pair<double,double> pj, pair<double , double> pk)
+{
+	pair<double,double> seg1;
+	seg1.first = pk.first - pi.first;
+	seg1.second = pk.second - pi.second;
+	pair<double, double> seg2;
+	seg2.first = pj.first - pi.first;
+	seg2.second = pj.second - pi.second;
+	auto tmp1 = seg1.first * seg2.second;
+	auto tmp2 = seg2.first * seg1.second;
+	return tmp1 - tmp2;
+}
+
+
+//driver function to check intersection of random segment and nearest vertex with obstacle
 bool cutsObstacle(pair<int,int> nearVert, pair<int,int> newVert, vector<linObstacle> obs, int nObs)
 {
-	double a1 = newVert.second - nearVert.second; 
-    double b1 = nearVert.first - newVert.first; 
-    double c1 = a1*(nearVert.first) + b1*(nearVert.second); 
- 	for(auto i = 0 ; i < nObs ; ++i) {
-	    double a2 = obs[i].y2 - obs[i].y1; 
-		double b2 = obs[i].x1 - obs[i].x2;  
-		double c2 = a2*(obs[i].x1)+ b2*(obs[i].y1); 
-  
-	    double determinant = a1*b2 - a2*b1; 
-  		if (determinant == 0) 
-        	return false;
+	for(auto i = 0 ; i < nObs ; ++i) {
+		auto d1 = direction(make_pair(obs[i].x1,obs[i].y1), make_pair(obs[i].x2, obs[i].y2), nearVert);
+		auto d2 = direction(make_pair(obs[i].x1,obs[i].y1), make_pair(obs[i].x2, obs[i].y2), newVert);
+		auto d3 = direction(nearVert, newVert, make_pair(obs[i].x1,obs[i].y1));
+		auto d4 = direction(nearVert,newVert,make_pair(obs[i].x2, obs[i].y2));
+		if(((d1 > 0 && d2 < 0) || (d1 <0 && d2 >0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0)))
+			return true;
 	}
-	return true;
-}	
+	return false;
+}
 
 
 int main()
 {
 
 	vector<pair<double, double>> vertex;
-	vertex.reserve(1000);
+	double xinit,yinit;
 	cout<<"Enter starting coordinates ";
-	cin>>vertex[0].first>>vertex[0].second;
-
+	cin>>xinit>>yinit;
+	vertex.push_back(make_pair(xinit,yinit));
 	pair<double,double> goal;
 	cout<<"Enter goal coordinates ";
 	cin>>goal.first>>goal.second;
@@ -94,24 +119,51 @@ int main()
 	int nObs;
 	cout<<"Enter number of obstacles ";
 	cin>>nObs;
+
 	vector<linObstacle> obs(nObs);
 	for(auto i = 0 ; i < nObs ; ++i)
 		cin>>obs[i].x1>>obs[i].y1>>obs[i].x2>>obs[i].y2;
 
 	int count = 0;
-	while(count < nVert)
+	bool vertLimit = false;
+	static double xdel = (goal.first - xinit) / nVert;
+	static double ydel = (goal.second - yinit) / nVert;
+	cout<<xdel<<endl<<ydel<<endl;
+	while(count < iter) 
 	{
-		auto newVert = randomConfig();
-		cout<<"Trying "<<newVert.first<<" "<<newVert.second<<endl;
+		auto newVert = randomConfig(vertex.back().first, vertex.back().second,xdel + 0.5,ydel + 0.5);
+//		xdel = xdel + ((goal.first - vertex.back().first)/nVert);
+//		ydel = ydel + ((goal.second - vertex.back().second)/nVert);
 		if(onObstacle(newVert,obs,nObs)) {
+			cout<<"randomConfig on Obstacle\n";
 			continue;
 		}
 		auto nearVert = getNearest(newVert,vertex,vertex.size());
-		if(cutsObstacle(nearVert,newVert,obs,nObs))
+		if(cutsObstacle(nearVert,newVert,obs,nObs)) {
+			cout<<"("<<newVert.first<<","<<newVert.second<<") ("<<nearVert.first<<","<<nearVert.second<<")";
+			cout<<" cuts obstacle \n";
 			continue;
-		++count;
+		}
+		cout<<"Adding vertex "<<newVert.first<<" "<<newVert.second<<endl;
+		cout<<round(newVert.first)<<" "<<round(newVert.second)<<endl;
+		if(round(newVert.first) == goal.first && round(newVert.second) == goal.second) {
+			cout<<"GOAL REACHED !\n";
+			break;
+		}
+		if(vertex.size() > nVert){
+			vertLimit = true;
+			break;
+		}
+		vertex.push_back(newVert);
+				++count;
 	}
-	if(count == iter)
+	if(vertLimit)
+		cout<<"Vertex limit reached\n";
+	else if(count == iter)
 		cout<<"Iteration limit reached, graph reached "<<vertex[nVert].first<<" "<< vertex[nVert].second<<endl;
+	cout<<"Vertices are ->\n";
+	for(auto i : vertex)
+		cout<<i.first<<", "<<i.second<<endl;
+	
 	return 0;
 }
